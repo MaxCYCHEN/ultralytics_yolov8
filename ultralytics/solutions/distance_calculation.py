@@ -14,16 +14,18 @@ class DistanceCalculation:
     def __init__(
         self,
         names,
+        pixels_per_meter=10,
         view_img=False,
         line_thickness=2,
-        line_color=(255, 0, 255),
-        centroid_color=(104, 31, 17),
+        line_color=(255, 255, 0),
+        centroid_color=(255, 0, 255),
     ):
         """
         Initializes the DistanceCalculation class with the given parameters.
 
         Args:
-            names (dict): Dictionary of classes names.
+            names (dict): Dictionary mapping class indices to class names.
+            pixels_per_meter (int, optional): Conversion factor from pixels to meters. Defaults to 10.
             view_img (bool, optional): Flag to indicate if the video stream should be displayed. Defaults to False.
             line_thickness (int, optional): Thickness of the lines drawn on the image. Defaults to 2.
             line_color (tuple, optional): Color of the lines drawn on the image (BGR format). Defaults to (255, 255, 0).
@@ -37,6 +39,7 @@ class DistanceCalculation:
         self.centroid_color = centroid_color
 
         # Prediction & tracking information
+        self.clss = None
         self.names = names
         self.boxes = None
         self.line_thickness = line_thickness
@@ -44,6 +47,7 @@ class DistanceCalculation:
 
         # Distance calculation information
         self.centroids = []
+        self.pixel_per_meter = pixels_per_meter
 
         # Mouse event information
         self.left_mouse_count = 0
@@ -51,7 +55,6 @@ class DistanceCalculation:
 
         # Check if environment supports imshow
         self.env_check = check_imshow(warn=True)
-        self.window_name = "Ultralytics Solutions"
 
     def mouse_event_for_distance(self, event, x, y, flags, param):
         """
@@ -75,6 +78,46 @@ class DistanceCalculation:
             self.selected_boxes = {}
             self.left_mouse_count = 0
 
+    def extract_tracks(self, tracks):
+        """
+        Extracts tracking results from the provided data.
+
+        Args:
+            tracks (list): List of tracks obtained from the object tracking process.
+        """
+        self.boxes = tracks[0].boxes.xyxy.cpu()
+        self.clss = tracks[0].boxes.cls.cpu().tolist()
+        self.trk_ids = tracks[0].boxes.id.int().cpu().tolist()
+
+    @staticmethod
+    def calculate_centroid(box):
+        """
+        Calculates the centroid of a bounding box.
+
+        Args:
+            box (list): Bounding box coordinates [x1, y1, x2, y2].
+
+        Returns:
+            (tuple): Centroid coordinates (x, y).
+        """
+        return int((box[0] + box[2]) // 2), int((box[1] + box[3]) // 2)
+
+    def calculate_distance(self, centroid1, centroid2):
+        """
+        Calculates the distance between two centroids.
+
+        Args:
+            centroid1 (tuple): Coordinates of the first centroid (x, y).
+            centroid2 (tuple): Coordinates of the second centroid (x, y).
+
+        Returns:
+            (tuple): Distance in meters and millimeters.
+        """
+        pixel_distance = math.sqrt((centroid1[0] - centroid2[0]) ** 2 + (centroid1[1] - centroid2[1]) ** 2)
+        distance_m = pixel_distance / self.pixel_per_meter
+        distance_mm = distance_m * 1000
+        return distance_m, distance_mm
+
     def start_process(self, im0, tracks):
         """
         Processes the video frame and calculates the distance between two bounding boxes.
@@ -92,13 +135,10 @@ class DistanceCalculation:
                 self.display_frames()
             return im0
 
-        self.boxes = tracks[0].boxes.xyxy.cpu()
-        clss = tracks[0].boxes.cls.cpu().tolist()
-        self.trk_ids = tracks[0].boxes.id.int().cpu().tolist()
-
+        self.extract_tracks(tracks)
         self.annotator = Annotator(self.im0, line_width=self.line_thickness)
 
-        for box, cls, track_id in zip(self.boxes, clss, self.trk_ids):
+        for box, cls, track_id in zip(self.boxes, self.clss, self.trk_ids):
             self.annotator.box_label(box, color=colors(int(cls), True), label=self.names[int(cls)])
 
             if len(self.selected_boxes) == 2:
@@ -107,15 +147,12 @@ class DistanceCalculation:
                         self.selected_boxes[track_id] = box
 
         if len(self.selected_boxes) == 2:
-            # Store user selected boxes in centroids list
-            self.centroids.extend(
-                [[int((box[0] + box[2]) // 2), int((box[1] + box[3]) // 2)] for box in self.selected_boxes.values()]
+            self.centroids = [self.calculate_centroid(self.selected_boxes[trk_id]) for trk_id in self.selected_boxes]
+
+            distance_m, distance_mm = self.calculate_distance(self.centroids[0], self.centroids[1])
+            self.annotator.plot_distance_and_line(
+                distance_m, distance_mm, self.centroids, self.line_color, self.centroid_color
             )
-            # Calculate pixels distance
-            pixels_distance = math.sqrt(
-                (self.centroids[0][0] - self.centroids[1][0]) ** 2 + (self.centroids[0][1] - self.centroids[1][1]) ** 2
-            )
-            self.annotator.plot_distance_and_line(pixels_distance, self.centroids, self.line_color, self.centroid_color)
 
         self.centroids = []
 
@@ -126,9 +163,9 @@ class DistanceCalculation:
 
     def display_frames(self):
         """Displays the current frame with annotations."""
-        cv2.namedWindow(self.window_name)
-        cv2.setMouseCallback(self.window_name, self.mouse_event_for_distance)
-        cv2.imshow(self.window_name, self.im0)
+        cv2.namedWindow("Ultralytics Distance Estimation")
+        cv2.setMouseCallback("Ultralytics Distance Estimation", self.mouse_event_for_distance)
+        cv2.imshow("Ultralytics Distance Estimation", self.im0)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
             return

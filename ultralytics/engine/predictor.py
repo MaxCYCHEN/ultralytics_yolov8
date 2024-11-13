@@ -311,7 +311,7 @@ class BasePredictor:
             fuse=True,
             verbose=verbose,
             # NOTE: `end2end` only available with detect for now
-            end2end=self.args.end2end and self.args.task == "detect",
+            #end2end=self.args.end2end and self.args.task == "detect",
         )
 
         self.device = self.model.device  # update device
@@ -331,7 +331,7 @@ class BasePredictor:
             frame = int(match[1]) if match else None  # 0 if frame undetermined
 
         self.txt_path = self.save_dir / "labels" / (p.stem + ("" if self.dataset.mode == "image" else f"_{frame}"))
-        string += "{:g}x{:g} ".format(*im.shape[2:])
+        string += "%gx%g " % im.shape[2:]
         result = self.results[i]
         result.save_dir = self.save_dir.__str__()  # used in other locations
         string += f"{result.verbose()}{result.speed['inference']:.1f}ms"
@@ -387,7 +387,7 @@ class BasePredictor:
             cv2.imwrite(save_path, im)
 
     def show(self, p=""):
-        """Display an image in a window using the OpenCV imshow function."""
+        """Display an image in a window using OpenCV imshow()."""
         im = self.plotted_img
         if platform.system() == "Linux" and p not in self.windows:
             self.windows.append(p)

@@ -158,7 +158,9 @@ class GhostConv(nn.Module):
     """Ghost Convolution https://github.com/huawei-noah/ghostnet."""
 
     def __init__(self, c1, c2, k=1, s=1, g=1, act=True):
-        """Initializes Ghost Convolution module with primary and cheap operations for efficient feature learning."""
+        """Initializes the GhostConv object with input channels, output channels, kernel size, stride, groups and
+        activation.
+        """
         super().__init__()
         c_ = c2 // 2  # hidden channels
         self.cv1 = Conv(c1, c_, k, s, None, g, act=act)
@@ -209,8 +211,7 @@ class RepConv(nn.Module):
         kernelid, biasid = self._fuse_bn_tensor(self.bn)
         return kernel3x3 + self._pad_1x1_to_3x3_tensor(kernel1x1) + kernelid, bias3x3 + bias1x1 + biasid
 
-    @staticmethod
-    def _pad_1x1_to_3x3_tensor(kernel1x1):
+    def _pad_1x1_to_3x3_tensor(self, kernel1x1):
         """Pads a 1x1 tensor to a 3x3 tensor."""
         if kernel1x1 is None:
             return 0

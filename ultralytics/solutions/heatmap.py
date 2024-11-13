@@ -18,7 +18,7 @@ class Heatmap:
 
     def __init__(
         self,
-        names,
+        classes_names,
         imw=0,
         imh=0,
         colormap=cv2.COLORMAP_JET,
@@ -37,13 +37,14 @@ class Heatmap:
         shape="circle",
     ):
         """Initializes the heatmap class with default values for Visual, Image, track, count and heatmap parameters."""
+
         # Visual information
         self.annotator = None
         self.view_img = view_img
         self.shape = shape
 
         self.initialized = False
-        self.names = names  # Classes names
+        self.names = classes_names  # Classes names
 
         # Image information
         self.imw = imw
@@ -59,9 +60,9 @@ class Heatmap:
         self.heatmap_alpha = heatmap_alpha
 
         # Predict/track information
-        self.boxes = []
-        self.track_ids = []
-        self.clss = []
+        self.boxes = None
+        self.track_ids = None
+        self.clss = None
         self.track_history = defaultdict(list)
 
         # Region & Line Information
@@ -106,17 +107,16 @@ class Heatmap:
             print("Using Circular shape now")
             self.shape = "circle"
 
-    def extract_results(self, tracks):
+    def extract_results(self, tracks, _intialized=False):
         """
         Extracts results from the provided data.
 
         Args:
             tracks (list): List of tracks obtained from the object tracking process.
         """
-        if tracks[0].boxes.id is not None:
-            self.boxes = tracks[0].boxes.xyxy.cpu()
-            self.clss = tracks[0].boxes.cls.tolist()
-            self.track_ids = tracks[0].boxes.id.int().tolist()
+        self.boxes = tracks[0].boxes.xyxy.cpu()
+        self.clss = tracks[0].boxes.cls.cpu().tolist()
+        self.track_ids = tracks[0].boxes.id.int().cpu().tolist()
 
     def generate_heatmap(self, im0, tracks):
         """
@@ -138,7 +138,7 @@ class Heatmap:
         self.extract_results(tracks)
         self.annotator = Annotator(self.im0, self.tf, None)
 
-        if self.track_ids:
+        if self.track_ids is not None:
             # Draw counting region
             if self.count_reg_pts is not None:
                 self.annotator.draw_region(

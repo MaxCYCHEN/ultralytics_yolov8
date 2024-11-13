@@ -1,67 +1,80 @@
-### Python
-YOLOv8 DeGirum Train
+### Yolov8 Edge int8 tflite version for MCU with/wo NPU device
+This project is from [YOLOv8 DeGirum Train](https://github.com/DeGirum/ultralytics_yolov8).
+DeGirum training uses ReLU6 activation to have improved model performance at edge.
+Below are some instructions to train and deploy to MCU with ethous-U device. 
 
-DeGirum training uses ReLU6 activation to have improved model performance at edge
+## Installation
+ - Create a new python env. If you aren't familiar with python env creating, you can reference here: [NuEdgeWise](https://github.com/OpenNuvoton/NuEdgeWise?tab=readme-ov-file#2-installation--env-create)
+ ```bash 
+conda create --name yolov8_DG  python=3.10
+conda activate yolov8_DG
+```
+ - upgrade pip
+ ```bash 
+python -m pip install --upgrade pip setuptools
+```
+**1.** Installing pytorch, basing on the type of system, CUDA version, PyTorch version [pytorch_locally](https://pytorch.org/get-started/locally/)
+- The below example is CUDA needed. If cpu only, please check [pytorch_locally](https://pytorch.org/get-started/locally/). 
+```bash 
+python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+```
+**2.** Installing the Ultralytics_yolov8
+- download this repo and open this directory.
 ```bash
-python dg_train.py --cfg relu6-yolov8.yaml --data coco128.yaml 
+python -m pip install .[export]
 ```
 
-YOLOv8 DeGirum Export
-
-Our ultralytics_yolov8 fork contains implementations for exporting a YOLO model with 6 separate outputs, for improved performance in quantized models.
-
-```python
-from ultralytics import YOLO
-
-# Load a model
-model = YOLO("relu6-yolov8n.yaml")  # build a new model from scratch
-model = YOLO("yolov8n.pt")  # load a pretrained model (recommended for training)
-
-# Use the model
-model.train(data="coco128.yaml", epochs=3)  # train the model
-metrics = model.val()  # evaluate model performance on the validation set
-results = model("https://ultralytics.com/images/bus.jpg")  # predict on an image
-path = model.export(format='onnx', export_hw_optimized=True, separate_outputs=True) # export model to ONNX format
-metrics = model.val(path, separate_outputs=True)  # evaluate model performance on exported models
+ ## How to Use
+ ### 1. Train
+- example:
+```bash
+python dg_train.py --model-cfg relu6-yolov8.yaml --data coco.yaml --imgsz 320 --weights yolov8n.pt --batch 64 --epochs 200
 ```
 
-### YOLOv8 DeGirum Regression Task
-
-Our ultralytics_yolov8 fork contains implementations that allow users to train image regression models. The YOLOv8 Regress model yields
-an output for a regressed value for an image. An example use case is estimating the age of a person. The user can train models with a
-Regress head or a Regress6 head; the first one is trained to yield values in the same range as the dataset it is trained on, whereas
-the Regress6 head yields values in the range 0 to 6. The Regress6 head proves itself to be less sensitive to quantization.
-
-The Regress model is seamlessly integrated into the training and validation modes of the YOLOv8 framework, and export to OpenVINO and TFLite
-is supported. Below is example code demonstrating the different modes for a model with a Regress head:
-```python
-from ultralytics import YOLO
-
-# Load a model
-model = YOLO("yolov8n-regress.yaml")  # build a new model from scratch
-
-# Use the model
-model.train(data="imdb10-age.yaml", epochs=3)  # train the model
-metrics = model.val()  # evaluate model performance on the validation set
-results = model("https://ultralytics.com/images/zidane.jpg")  # predict on an image
-path = model.export(format='onnx', export_hw_optimized=True) # export model to ONNX format
-metrics = model.val(path)  # evaluate model performance on exported model
+### 2. Evaluate Pytorch Model (Optional)
+- example:
+```bash
+python dg_val.py --weights .\runs\train\exp2\weights\best.pt --data coco.yaml --img 320
 ```
 
-The model with a Regress6 head is used in a similar way:
-```python
-from ultralytics import YOLO
-
-# Load a model
-model = YOLO("yolov8n-regress6.yaml")  # build a new model from scratch
-
-# Use the model
-model.train(data="imdb10-age.yaml", epochs=3)  # train the model
-metrics = model.val()  # evaluate model performance on the validation set
-results = model("https://ultralytics.com/images/zidane.jpg")  # predict on an image
-path = model.export(format='onnx', export_hw_optimized=True) # export model to ONNX format
-metrics = model.val(path)  # evaluate model performance on exported model
+### 4. Pytorch to Tflite int8
+- Firstly, convert to ONNX, example:
+```bash
+python nu_export_tflite_int8.py --format onnx --weights .\runs\train\exp2\weights\best.pt --img 320
 ```
+
+- Secondly, create calibration data, example:
+```bash
+python generate_calib_data.py --img-size 320 320 --n-img 200 -o calib_data_320_n200_rgb.npy --img-dir ..\yolox-ti-lite_tflite_int8\datasets\coco\train2017\images
+```
+
+- Thirdly, convert to TFLITE int8, example:
+```bash
+onnx2tf -i runs\train\exp2\weights\best.onnx -oiqt -cind images calib_data_320_n200_rgb.npy "[[[[0,0,0]]]]" "[[[[1,1,1]]]]"
+```
+
+### 5. Evaluate TFlite int8/float Model
+- example:
+```bash
+python dg_val.py --weights .\runs\train\exp2\weights\best_full_integer_quant.tflite --data coco.yaml --img 320
+```
+
+### 6. Use Vela Compiler and Convert to Deplyment Format
+- move the int8 tflite model to `vela\generated\` 
+- in `vela` and update `variables.bat`
+    ```bash
+    set MODEL_SRC_FILE=<your tflite model>
+    set MODEL_OPTIMISE_FILE=<output vela model>
+    ```
+    - example:
+    ```bash
+    set MODEL_SRC_FILE=yolox_nano_ti_lite_nu_hg_150_full_integer_quant.tflite
+    set MODEL_OPTIMISE_FILE=yolox_nano_ti_lite_nu_hg_150_full_integer_quant_vela.tflite
+    ```
+- The output file for deplyment is `vela\generated\yolox_nano_ti_lite_nu_full_integer_quant_vela.tflite.cc`
+
+
+
 
 <div align="center">
   <p>
