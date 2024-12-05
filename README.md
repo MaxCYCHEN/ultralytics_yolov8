@@ -43,7 +43,7 @@ python dg_val.py --weights .\runs\train\exp2\weights\best.pt --data coco.yaml --
     set IMG_SIZE=320
     set MODEL_FILE_NAME=best
     set OUTPUT_DIR=runs/train/exp2/weights
-    set TRAIN_DATASET=../yolox-ti-lite_tflite_int8/datasets/coco/train2017/images
+    set TRAIN_DATASET=datasets/coco/train2017/images
     ```
 - 2. Run `yolov8n_convert`
 ### 4. Pytorch to Tflite int8
@@ -54,7 +54,7 @@ python nu_export_tflite_int8.py --format onnx --weights .\runs\train\exp2\weight
 
 - Secondly, create calibration data, example:
 ```bash
-python generate_calib_data.py --img-size 320 320 --n-img 200 -o calib_data_320_n200_rgb.npy --img-dir ..\yolox-ti-lite_tflite_int8\datasets\coco\train2017\images
+python generate_calib_data.py --img-size 320 320 --n-img 200 -o calib_data_320_n200_rgb.npy --img-dir datasets\coco\train2017\images
 ```
 
 - Thirdly, convert to TFLITE int8, example:
@@ -78,10 +78,15 @@ python dg_val.py --weights .\runs\train\exp2\weights\best_full_integer_quant.tfl
     ```
     - example:
     ```bash
-    set MODEL_SRC_FILE=yolox_nano_ti_lite_nu_hg_150_full_integer_quant.tflite
-    set MODEL_OPTIMISE_FILE=yolox_nano_ti_lite_nu_hg_150_full_integer_quant_vela.tflite
+    set MODEL_SRC_FILE=yolov8n_full_integer_quant.tflite
+    set MODEL_OPTIMISE_FILE=yolov8n_full_integer_quant_vela.tflite
     ```
-- The output file for deplyment is `vela\generated\yolox_nano_ti_lite_nu_full_integer_quant_vela.tflite.cc`
+- The output file for deplyment is `vela\generated\yolov8n_full_integer_quant_vela.tflite` and `vela\generated\yolov8n_full_integer_quant_vela.tflite.cc`
+
+## Inference code
+- The output file for deplyment is for example `vela\generated\yolov8n_full_integer_quant_vela.tflite` and move it to SD card root directory to update new model. (Please refer the below M55M1 BSP firmware.)
+
+- MCU: [M55M1 Firmware](https://github.com/OpenNuvoton/ML_M55M1_SampleCode/tree/master/M55M1BSP-3.00.001/SampleCode/NuEdgeWise/ObjectDetection_YOLOv8n)
 
 
 
