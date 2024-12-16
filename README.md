@@ -38,14 +38,14 @@ python dg_val.py --weights .\runs\train\exp2\weights\best.pt --data coco.yaml --
 ```
 ### 3. Windows Batch Script for Converting Pytorch to Deployment Format (tflite int8/vela) (Optional)
 - This script will help you finish point 4 and pint 6, and of course you can manually execute the python & cmds below.
-- 1. Update `yolox_convert` to your model, for example:
+- 1. Update `yolov8n_convert.bat` basing on your model info, for example:
     ```bash
     set IMG_SIZE=320
     set MODEL_FILE_NAME=best
     set OUTPUT_DIR=runs/train/exp2/weights
     set TRAIN_DATASET=datasets/coco/train2017/images
     ```
-- 2. Run `yolov8n_convert`
+- 2. Run `yolov8n_convert.bat`
 ### 4. Pytorch to Tflite int8
 - Firstly, convert to ONNX, example:
 ```bash
